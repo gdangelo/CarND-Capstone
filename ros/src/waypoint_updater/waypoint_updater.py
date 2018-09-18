@@ -63,11 +63,19 @@ class WaypointUpdater(object):
         # Query KDTree to retrieve closest waypoint from current pose
         closest_id = self.base_waypoints_kdtree.query([[x, y]], 1)[1]
 
+        # TODO: check if point is ahead of car
+
         return closest_id
 
     self.publish_waypoints(self, closest_id):
-        # TODO
-        pass
+        # Create message to publish
+        lane = Lane()
+        # Add header to lane message
+        lane.header = self.base_waypoints.header
+        # Add waypoints to lane message
+        lane.waypoints = self.base_waypoints[closest_id:closest_id+LOOKAHEAD_WPS]
+        # Publish lane message
+        self.final_waypoints_pub.publish(lane)
 
     def pose_cb(self, msg):
         self.pose = msg
