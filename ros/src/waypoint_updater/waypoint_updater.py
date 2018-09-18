@@ -47,12 +47,16 @@ class WaypointUpdater(object):
         rospy.loop()
 
     def loop(self):
+        # Set loop rate at 50Hz
+        rate = rospy.Rate(50)
+        # Run until node is shutted down
         while not rospy.is_shutdown():
             if self.pose and self.base_waypoints_kdtree:
                 # Find closest id waypoint to current pose using KDTree
                 closest_id = self.get_closest_waypoint_id()
                 # Publish {LOOKAHEAD_WPS} waypoints from this id
                 self.publish_waypoints(self, closest_id)
+            rate.sleep()
 
     self.get_closest_waypoint_id():
         # Get current pose coordinates
