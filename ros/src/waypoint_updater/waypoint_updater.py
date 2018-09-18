@@ -40,9 +40,28 @@ class WaypointUpdater(object):
         # Member variables
         self.pose = None
         self.base_waypoints = None
+        self.base_waypoints_2d = None
         self.base_waypoints_kdtree = None
 
+        rospy.loop()
+
+    def loop(self):
+        if self.pose and self.base_waypoints_kdtree:
+            # Find closest id waypoint from base waypoints using KDTree
+            closest_id = self.get_closest_waypoint_id()
+            # Publish {LOOKAHEAD_WPS} waypoints from this id
+            self.publish_waypoints(self, closest_id)
+
+        # Keep python from exiting until this node is stopped
         rospy.spin()
+
+    self.get_closest_waypoint_id():
+        # TODO
+        pass
+
+    self.publish_waypoints(self, closest_id):
+        # TODO
+        pass
 
     def pose_cb(self, msg):
         self.pose = msg
@@ -50,8 +69,10 @@ class WaypointUpdater(object):
     def waypoints_cb(self, waypoints):
         # Base waypoints are only received once, save them
         self.base_waypoints = waypoints
+        # Only keep 2D data
+        self.base_waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
         # Use KDTree for quick nearest-neighbor lookup
-        self.base_waypoints_kdtree = KDTree(waypoints)
+        self.base_waypoints_kdtree = KDTree(self.base_waypoints_2d)
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
