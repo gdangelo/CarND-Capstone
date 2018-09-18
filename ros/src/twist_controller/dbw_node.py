@@ -59,12 +59,22 @@ class DBWNode(object):
         self.controller = Controller()
 
         # Subscribe to all the topics you need to
-        rospy.Subscribe('/vehicle/dbw_enabled', Bool, dbw_cb)
+        rospy.Subscriber('/vehicle/dbw_enabled', Bool, self.dbw_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
+        rospy.Subscriber('/twist_cmd', TwistStamped, self.twist_cb)
 
         self.loop()
 
     def dbw_cb(self, msg):
         self.dbw_enabled = msg
+
+    def velocity_cb(self, msg):
+        # TODO
+        pass
+
+    def twist_cb(self, msg):
+        # TODO
+        pass
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
@@ -73,7 +83,7 @@ class DBWNode(object):
             throttle, brake, steering = self.controller.control()
             # Only publish the control commands if dbw is enabled
             if self.dbw_enabled:
-                self.publish(throttle, brake, steer)
+                self.publish(throttle, brake, steering)
 
             rate.sleep()
 
