@@ -39,6 +39,8 @@ class WaypointUpdater(object):
 
         # Member variables
         self.pose = None
+        self.base_waypoints = None
+        self.base_waypoints_kdtree = None
 
         rospy.spin()
 
@@ -46,8 +48,10 @@ class WaypointUpdater(object):
         self.pose = msg
 
     def waypoints_cb(self, waypoints):
-        # TODO: Implement
-        pass
+        # Base waypoints are only received once, save them
+        self.base_waypoints = waypoints
+        # Use KDTree for quick nearest-neighbor lookup
+        self.base_waypoints_kdtree = KDTree(waypoints)
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
