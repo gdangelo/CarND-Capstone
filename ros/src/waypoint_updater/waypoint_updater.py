@@ -44,7 +44,7 @@ class WaypointUpdater(object):
         self.base_waypoints_2d = None
         self.base_waypoints_kdtree = None
 
-        rospy.loop()
+        self.loop()
 
     def loop(self):
         # Set loop rate at 50Hz
@@ -55,10 +55,10 @@ class WaypointUpdater(object):
                 # Find closest id waypoint to current pose using KDTree
                 closest_id = self.get_closest_waypoint_id()
                 # Publish {LOOKAHEAD_WPS} waypoints from this id
-                self.publish_waypoints(self, closest_id)
+                self.publish_waypoints(closest_id)
             rate.sleep()
 
-    self.get_closest_waypoint_id():
+    def get_closest_waypoint_id(self):
         # Get current pose coordinates
         x = self.pose.pose.position.x
         y = self.pose.pose.position.y
@@ -67,25 +67,25 @@ class WaypointUpdater(object):
         closest_id = self.base_waypoints_kdtree.query([[x, y]], 1)[1]
 
         # Check if point is ahead of car by computing dot product between
-        # vector {closest_wp-->prev_wp} and vector {current_wp-->current_car_wp}
+        # vector {closest_wp-->prev_wp} and vector {closest_wp-->current_car_wp}
         closest_wp = np.array(self.base_waypoints_2d[closest_id])
         prev_wp = np.array(self.base_waypoints_2d[closest_id - 1])
         current_car_wp = np.array([x, y])
 
-        if np.dot(closest_wp - prev_wp, current_wp - current_car_wp) > 0:
+        if np.dot(closest_wp - prev_wp, current_car_wp - closest_wp) > 0:
             # Retrieve the next waypoint from the previous closest id
             # This is one should be the closest one in front of the car
             return (closest_id + 1) % len(self.base_waypoints_2d)
 
         return closest_id
 
-    self.publish_waypoints(self, closest_id):
+    def publish_waypoints(self, closest_id):
         # Create message to publish
         lane = Lane()
         # Add header to lane message
         lane.header = self.base_waypoints.header
         # Add waypoints to lane message
-        lane.waypoints = self.base_waypoints[closest_id:closest_id+LOOKAHEAD_WPS]
+        lane.waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
         # Publish lane message
         self.final_waypoints_pub.publish(lane)
 
