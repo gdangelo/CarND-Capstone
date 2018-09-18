@@ -47,7 +47,7 @@ class WaypointUpdater(object):
 
     def loop(self):
         if self.pose and self.base_waypoints_kdtree:
-            # Find closest id waypoint from base waypoints using KDTree
+            # Find closest id waypoint to current pose using KDTree
             closest_id = self.get_closest_waypoint_id()
             # Publish {LOOKAHEAD_WPS} waypoints from this id
             self.publish_waypoints(self, closest_id)
@@ -56,8 +56,14 @@ class WaypointUpdater(object):
         rospy.spin()
 
     self.get_closest_waypoint_id():
-        # TODO
-        pass
+        # Get current pose coordinates
+        x = self.pose.pose.position.x
+        y = self.pose.pose.position.y
+
+        # Query KDTree to retrieve closest waypoint from current pose
+        closest_id = self.base_waypoints_kdtree.query([[x, y]], 1)[1]
+
+        return closest_id
 
     self.publish_waypoints(self, closest_id):
         # TODO
