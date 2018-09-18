@@ -4,6 +4,7 @@ import rospy
 from geometry_msgs.msg import PoseStamped
 from styx_msgs.msg import Lane, Waypoint
 from scipy.spatial import KDTree
+import numpy as np
 
 import math
 
@@ -63,7 +64,16 @@ class WaypointUpdater(object):
         # Query KDTree to retrieve closest waypoint from current pose
         closest_id = self.base_waypoints_kdtree.query([[x, y]], 1)[1]
 
-        # TODO: check if point is ahead of car
+        # Check if point is ahead of car by computing dot product between
+        # vector {closest_wp-->prev_wp} and vector {current_wp-->current_car_wp}
+        closest_wp = np.array(self.base_waypoints_2d[closest_id])
+        prev_wp = np.array(self.base_waypoints_2d[closest_id - 1])
+        current_car_wp = np.array([x, y])
+
+        if np.dot(closest_wp - prev_wp, current_wp - current_car_wp) > 0:
+            # Retrieve the next waypoint from the previous closest id
+            # This is one should be the closest one in front of the car
+            return (closest_id + 1) % len(self.base_waypoints_2d)
 
         return closest_id
 
