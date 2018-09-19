@@ -13,14 +13,25 @@ class Controller(object):
         # Use Yaw controller to predict steering angle
         self.yaw_controller = YawController(wheel_base, steer_ratio, 0.1, max_lat_accel, max_steer_angle)
 
-    def control(self, dbw_enabled):
+        self.last_time = rospy.get_time()
+
+    def control(self, dbw_enabled, current_vel, linear_vel, angular_vel):
         # Reset PID when DBW is disable
         if not dbw_enabled:
             self.pid_controller.reset()
             return None
 
-        # Compute current error for PID
-        # TODO
+        # Compute current error and sample time for PID
+        error = linear_vel - current_vel
+        current_time = rospy.get_time()
+        sample_time = current_time - self.last_time
 
-        # Return throttle, brake, steer
-        return 1., 0., 0.
+        # Retrieve throttle from PID controller
+        throttle = self.pid_controller.step(error, sample_time)
+        brake = 0
+        steering = 0
+
+        self.last_time = current_time
+
+        # Return throttle, brake, steering
+        return throttle, brake, steering
