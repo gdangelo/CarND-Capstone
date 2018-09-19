@@ -9,7 +9,7 @@ ONE_MPH = 0.44704
 class Controller(object):
     def __init__(self, wheel_base, steer_ratio, max_lat_accel, max_steer_angle):
         # Use PID controller to predict throttle value
-        self.pid_controller = PID(0.1, 0.1, 0.1, 0., 1.)
+        self.pid_controller = PID(0.1, 0.1, 0.1, 0., 0.2)
 
         # Use Yaw controller to predict steering angle
         self.yaw_controller = YawController(wheel_base, steer_ratio, 0.1, max_lat_accel, max_steer_angle)
