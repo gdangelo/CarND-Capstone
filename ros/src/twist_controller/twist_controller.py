@@ -34,8 +34,12 @@ class Controller(object):
 
         # Retrieve throttle from PID controller
         throttle = self.pid_controller.step(error, sample_time)
+
+        # TODO: Compute braking based on target and current velocity
         brake = 0
-        steering = 0
+
+        # Retrieve steering from yaw controller
+        steering = self.yaw_controller.get_steering(linear_vel, angular_vel, current_vel)
 
         self.last_time = current_time
 
