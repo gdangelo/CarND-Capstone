@@ -28,7 +28,7 @@ class Controller(object):
             return None
 
         # Compute current error and sample time for PID
-        error = linear_vel - current_vel
+        error = current_vel - linear_vel
         current_time = rospy.get_time()
         sample_time = current_time - self.last_time
 
