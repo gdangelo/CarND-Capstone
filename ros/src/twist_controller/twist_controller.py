@@ -17,6 +17,11 @@ class Controller(object):
         self.last_time = rospy.get_time()
 
     def control(self, dbw_enabled, current_vel, linear_vel, angular_vel):
+        rospy.logwarn('DWB enabled: {0}'.format(dbw_enabled))
+        rospy.logwarn('Current velocity: {0}'.format(current_vel))
+        rospy.logwarn('Target velocity: {0}'.format(linear_vel))
+        rospy.logwarn('Target angular velocity: {0}'.format(angular_vel))
+
         # Reset PID when DBW is disable
         if not dbw_enabled:
             self.pid_controller.reset()
@@ -34,5 +39,8 @@ class Controller(object):
 
         self.last_time = current_time
 
-        # Return throttle, brake, steering
+        rospy.logwarn('Throttle: {0}'.format(throttle))
+        rospy.logwarn('Brake: {0}'.format(brake))
+        rospy.logwarn('Steering: {0}'.format(steering))
+
         return throttle, brake, steering
