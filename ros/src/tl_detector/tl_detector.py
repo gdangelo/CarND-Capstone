@@ -61,10 +61,10 @@ class TLDetector(object):
         self.waypoints = waypoints
 
         # Only keep 2D data from waypoints
-        self.base_waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
+        self.waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
 
         # Use KDTree for quick nearest-neighbor lookup
-        self.base_waypoints_kdtree = KDTree(self.base_waypoints_2d)
+        self.waypoints_kdtree = KDTree(self.waypoints_2d)
 
     def traffic_cb(self, msg):
         self.lights = msg.lights
@@ -110,7 +110,7 @@ class TLDetector(object):
 
         """
         # Query KDTree to retrieve closest waypoint from current pose
-        return base_waypoints_kdtree.query([[x, y]], 1)[1]
+        return self.waypoints_kdtree.query([[x, y]], 1)[1]
 
     def get_light_state(self, light):
         """Determines the current color of the traffic light
@@ -149,7 +149,7 @@ class TLDetector(object):
 
         # List of positions that correspond to the line to stop in front of for a given intersection
         stop_line_positions = self.config['stop_line_positions']
-        if(self.pose):
+        if(self.pose and self.waypoints_kdtree):
             car_position = self.get_closest_waypoint(self.pose.pose.position.x, self.pose.pose.position.y)
 
             # Find the closest visible traffic light (if one exists)

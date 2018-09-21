@@ -94,8 +94,7 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, waypoints):
         # Base waypoints are only received once, save them
-        self.base_waypoints = waypoints
-        # Only keep 2D data
+        self.base_waypoints = waypoints# Only keep 2D data
         self.base_waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
         # Use KDTree for quick nearest-neighbor lookup
         self.base_waypoints_kdtree = KDTree(self.base_waypoints_2d)
@@ -108,35 +107,34 @@ class WaypointUpdater(object):
         pass
 
     def get_final_waypoints(self, closest_id):
-        red_ligh_ahead = (self.stop_waypoint_id > closest_id) and (self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS)
+        # Generate the list of next LOOKAHEAD_WPS waypoints
+        waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
 
-        # Check if red light detected in the next {LOOKAHEAD_WPS} waypoints
-        if not red_ligh_ahead:
-            return self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
-
-        # Get first waypoint target velocity
-        vel = self.base_waypoints.waypoints[closest_id].twist.linear.x
-
-        # Compute decreasing velocity step
-        decrease_vel_step = vel / float(LOOKAHEAD_WPS)
-
-        # Update velocity for each waypoint
-        waypoints = []
-        for i in range(LOOKAHEAD_WPS):
-            wp = self.base_waypoints.waypoints[closest_id+i]
-            # Stop at red light
-            if closest_id+i == self.stop_waypoint_id:
-                wp.twist.linear.x = 0
-            # Decrease target velocity
-            else:
-                wp.twist.linear.x -= decrease_vel_step
-            # Add updated waypoint to the list
-            waypoints.append(wp)
+        # If red light detected ahead update waypoints velocities
+        if (self.stop_waypoint_id > closest_id) and (self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS):
+            self.decelerate(waypoints, closest_id)
 
         return waypoints
 
-    def get_waypoint_velocity(self, waypoint):
-        return waypoint.twist.twist.linear.x
+    def decelerate(self, waypoints, closest_id):
+        # Get first waypoint target velocity
+        first_vel = self.get_waypoint_velocity(waypoints, closest_id)
+
+        # Compute decreasing velocity step
+        decrease_vel_step = first_vel / float(LOOKAHEAD_WPS)
+
+        # Update velocity for each waypoint
+        for i in range(LOOKAHEAD_WPS):
+            # Stop at red light
+            if closest_id+i == self.stop_waypoint_id:
+                self.set_waypoint_velocity(waypoints, closest_id+i, 0.)
+            # Decrease target velocity
+            else:
+                vel = self.get_waypoint_velocity(waypoints, closest_id+i)
+                self.set_waypoint_velocity(waypoints, closest_id+i, vel - decrease_vel_step)
+
+    def get_waypoint_velocity(self, waypoints, waypoint):
+        return waypoints[waypoint].twist.twist.linear.x
 
     def set_waypoint_velocity(self, waypoints, waypoint, velocity):
         waypoints[waypoint].twist.twist.linear.x = velocity
