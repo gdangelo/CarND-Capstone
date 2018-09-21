@@ -13,7 +13,6 @@ class Controller(object):
 
         # Use Yaw controller to predict steering angle
         self.yaw_controller = YawController(wheel_base, steer_ratio, 0.1, max_lat_accel, max_steer_angle)
-
         self.vehicle_mass = vehicle_mass
         self.fuel_capacity = fuel_capacity
         self.brake_deadband = brake_deadband
@@ -39,7 +38,7 @@ class Controller(object):
             return None
 
         # Compute current error and sample time for PID
-        error = current_vel - linear_vel
+        error = linear_vel - current_vel
         current_time = rospy.get_time()
         sample_time = current_time - self.last_time
 
@@ -56,7 +55,7 @@ class Controller(object):
         elif throttle < .1 and error > 0:
             # Brake to decelerate smoothly
             decel = max(error, self.decel_limit)
-            brake = decel * self.vehicle_mass * self.wheel_radius # Torque N*m
+            brake = abs(decel) * self.vehicle_mass * self.wheel_radius # Torque N*m
 
         # Retrieve steering from yaw controller
         steering = self.yaw_controller.get_steering(linear_vel, angular_vel, current_vel)

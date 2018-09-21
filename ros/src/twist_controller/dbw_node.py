@@ -71,14 +71,14 @@ class DBWNode(object):
         self.loop()
 
     def dbw_cb(self, msg):
-        self.dbw_enabled = msg
+        self.dbw_enabled = msg.data
 
     def velocity_cb(self, msg):
-        self.linear_vel = msg.twist.linear.x
-        self.angular_vel = msg.twist.angular.z
+        self.current_vel = msg.twist.linear.x
 
     def twist_cb(self, msg):
-        self.current_vel = msg.twist.linear.x
+        self.linear_vel = msg.twist.linear.x
+        self.angular_vel = msg.twist.angular.z
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
