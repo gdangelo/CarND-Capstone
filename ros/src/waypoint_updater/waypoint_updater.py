@@ -84,7 +84,7 @@ class WaypointUpdater(object):
         # Add header to lane message
         lane.header = self.base_waypoints.header
         # Add waypoints to lane message
-        lane.waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
+        lane.waypoints = self.get_final_waypoints(closest_id)
         # Publish lane message
         self.final_waypoints_pub.publish(lane)
 
@@ -105,6 +105,34 @@ class WaypointUpdater(object):
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
         pass
+
+    def get_final_waypoints(self, closest_id):
+        red_ligh_ahead = (self.stop_waypoint_id > closest_id) && (self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS)
+
+        # Check if red light detected in the next {LOOKAHEAD_WPS} waypoints
+        if(!red_ligh_ahead):
+            return self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
+
+        # Get first waypoint target velocity
+        vel = self.base_waypoints.waypoints[closest_id].twist.linear.x
+
+        # Compute decreasing velocity step
+        decrease_vel_step = vel / float(LOOKAHEAD_WPS)
+
+        # Update velocity for each waypoint
+        waypoints = []
+        for i in range(LOOKAHEAD_WPS):
+            wp = self.base_waypoints.waypoints[closest_id+i]
+            # Stop at red light
+            if closest_id+i == self.stop_waypoint_id:
+                wp.twist.linear.x = 0
+            # Decrease target velocity
+            else:
+                wp.twist.linear.x -= decrease_vel_step
+            # Add updated waypoint to the list
+            waypoints.append(wp)
+
+        return waypoints
 
     def get_waypoint_velocity(self, waypoint):
         return waypoint.twist.twist.linear.x
