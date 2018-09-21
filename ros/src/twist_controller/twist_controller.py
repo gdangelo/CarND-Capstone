@@ -27,6 +27,7 @@ class Controller(object):
         self.last_time = rospy.get_time()
 
     def control(self, dbw_enabled, current_vel, linear_vel, angular_vel):
+        rospy.logwarn('---')
         rospy.logwarn('DWB enabled: {0}'.format(dbw_enabled))
         rospy.logwarn('Current velocity: {0}'.format(current_vel))
         rospy.logwarn('Target velocity: {0}'.format(linear_vel))
@@ -35,7 +36,7 @@ class Controller(object):
         # Reset PID when DBW is disable
         if not dbw_enabled:
             self.pid_controller.reset()
-            return None
+            return 0., 0., 0.
 
         # Compute current error and sample time for PID
         error = linear_vel - current_vel
@@ -52,10 +53,11 @@ class Controller(object):
             brake = 700 # Torque N*m
             throttle = 0
 
-        elif throttle < .1 and error > 0:
+        elif throttle < .1 and error < 0:
             # Brake to decelerate smoothly
-            decel = max(error, self.decel_limit)
+            decel = max(throttle, self.decel_limit)
             brake = abs(decel) * self.vehicle_mass * self.wheel_radius # Torque N*m
+            throttle = 0
 
         # Retrieve steering from yaw controller
         steering = self.yaw_controller.get_steering(linear_vel, angular_vel, current_vel)
