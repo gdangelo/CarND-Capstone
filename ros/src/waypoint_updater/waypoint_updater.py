@@ -64,7 +64,7 @@ class WaypointUpdater(object):
         y = self.pose.pose.position.y
 
         # Query KDTree to retrieve closest waypoint from current pose
-        closest_id = self.base_waypoints_kdtree.query([[x, y]], 1)[1]
+        closest_id = self.base_waypoints_kdtree.query([[x, y]], 1)[1][0]
 
         # Check if point is ahead of car by computing dot product between
         # vector {closest_wp-->prev_wp} and vector {closest_wp-->current_car_wp}
@@ -111,14 +111,14 @@ class WaypointUpdater(object):
         waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
 
         # If red light detected ahead update waypoints velocities
-        if (self.stop_waypoint_id > closest_id) and (self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS):
+        if self.stop_waypoint_id > 0:
             self.decelerate(waypoints, closest_id)
 
         return waypoints
 
     def decelerate(self, waypoints, closest_id):
         # Get first waypoint target velocity
-        first_vel = self.get_waypoint_velocity(waypoints, closest_id)
+        first_vel = self.get_waypoint_velocity(waypoints, 0)
 
         # Compute decreasing velocity step
         decrease_vel_step = first_vel / float(LOOKAHEAD_WPS)
@@ -127,11 +127,12 @@ class WaypointUpdater(object):
         for i in range(LOOKAHEAD_WPS):
             # Stop at red light
             if closest_id+i == self.stop_waypoint_id:
-                self.set_waypoint_velocity(waypoints, closest_id+i, 0.)
+                self.set_waypoint_velocity(waypoints, i, 0.)
             # Decrease target velocity
             else:
-                vel = self.get_waypoint_velocity(waypoints, closest_id+i)
-                self.set_waypoint_velocity(waypoints, closest_id+i, vel - decrease_vel_step)
+                vel = self.get_waypoint_velocity(waypoints, i)
+                vel = vel - decrease_vel_step if vel - decrease_vel_step > 0.1 else 0.
+                self.set_waypoint_velocity(waypoints, i, vel)
 
     def get_waypoint_velocity(self, waypoints, waypoint):
         return waypoints[waypoint].twist.twist.linear.x
