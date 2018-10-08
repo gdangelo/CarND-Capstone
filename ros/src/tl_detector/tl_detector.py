@@ -112,7 +112,7 @@ class TLDetector(object):
         # Query KDTree to retrieve closest waypoint from current pose
         return self.waypoints_kdtree.query([[x, y]], 1)[1]
 
-    def get_light_state(self, light):
+    def get_light_state(self):
         """Determines the current color of the traffic light
 
         Args:
@@ -138,7 +138,6 @@ class TLDetector(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-        closest_light = None
         light_wp = None
 
         # List of positions that correspond to the line to stop in front of for a given intersection
@@ -148,7 +147,7 @@ class TLDetector(object):
 
             # Find the closest visible traffic light (if one exists)
             diff = len(self.waypoints_2d)
-            for i, light in enumerate(self.lights):
+            for i, _ in enumerate(self.lights):
                 # For each stop line, get the closest waypoint index
                 line = stop_line_positions[i]
                 temp_wp = self.get_closest_waypoint(line[0], line[1])
@@ -157,11 +156,10 @@ class TLDetector(object):
                 if d > 0 and d < diff:
                     # Update vars in case diff is the smallest
                     diff = d
-                    closest_light = light
                     light_wp = temp_wp
 
-        if closest_light:
-            state = self.get_light_state(closest_light)
+        if light_wp:
+            state = self.get_light_state()
 
             if(state == TrafficLight.RED):
                 light_str = 'Red'
