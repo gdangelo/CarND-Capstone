@@ -9,7 +9,7 @@ ONE_MPH = 0.44704
 class Controller(object):
     def __init__(self, vehicle_mass, fuel_capacity, brake_deadband, decel_limit, accel_limit, wheel_radius, wheel_base, steer_ratio, max_lat_accel, max_steer_angle):
         # Use PID controller to predict throttle value
-        self.pid_controller = PID(0.1, 0.1, 0.1, 0., 0.2)
+        self.pid_controller = PID(0.1, 0.1, 0.1, 0., 0.5)
 
         # Use Yaw controller to predict steering angle
         self.yaw_controller = YawController(wheel_base, steer_ratio, 0.1, max_lat_accel, max_steer_angle)
@@ -53,7 +53,7 @@ class Controller(object):
             brake = 700 # Torque N*m
             throttle = 0
 
-        elif throttle < .1 and error < 0:
+        elif throttle < .01 and error < 0:
             # Brake to decelerate smoothly
             decel = max(throttle, self.decel_limit)
             brake = abs(decel) * self.vehicle_mass * self.wheel_radius # Torque N*m
