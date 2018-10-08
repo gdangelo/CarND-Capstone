@@ -16,7 +16,7 @@ class TLClassifier(object):
         # Minimum threshold for taking detection into account
         self.min_score_thresh = min_score_thresh
 
-    def convert_class_id_to_traffic_light(class_id):
+    def convert_class_id_to_traffic_light(self, class_id):
         if class_id == 1:
             return TrafficLight.GREEN
         if class_id == 2:
@@ -82,4 +82,4 @@ class TLClassifier(object):
                 if output_dict['num_detections'] > 0 and output_dict['detection_scores'][0] > self.min_score_thresh:
                     detected_class = output_dict['detection_classes'][0]
 
-                return convert_class_id_to_traffic_light(detected_class)
+                return self.convert_class_id_to_traffic_light(detected_class)
