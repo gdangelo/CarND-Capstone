@@ -12,10 +12,6 @@ class TLClassifier(object):
                 od_graph_def.ParseFromString(serialized_graph)
                 tf.import_graph_def(od_graph_def, name='')
 
-    def load_image_into_numpy_array(self, image):
-        (im_width, im_height) = image.size
-        return np.array(image.getdata()).reshape((im_height, im_width, 3)).astype(np.uint8)
-
     def get_classification(self, image):
         """Determines the color of the traffic light in the image
 
@@ -26,9 +22,6 @@ class TLClassifier(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
-
-        # Convert image into numpy array
-        image_np = self.load_image_into_numpy_array(image)
 
         with self.detection_graph.as_default():
             with tf.Session() as sess:
@@ -60,7 +53,7 @@ class TLClassifier(object):
                 image_tensor = tf.get_default_graph().get_tensor_by_name('image_tensor:0')
 
                 # Run inference
-                output_dict = sess.run(tensor_dict, feed_dict={image_tensor: np.expand_dims(image_np, 0)})
+                output_dict = sess.run(tensor_dict, feed_dict={image_tensor: np.expand_dims(image, 0)})
 
                 # all outputs are float32 numpy arrays, so convert types as appropriate
                 output_dict['num_detections'] = int(output_dict['num_detections'][0])
