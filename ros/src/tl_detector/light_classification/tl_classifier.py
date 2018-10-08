@@ -1,8 +1,9 @@
 from styx_msgs.msg import TrafficLight
 import tensorflow as tf
+import numpy as np
 
 class TLClassifier(object):
-    def __init__(self, model_file):
+    def __init__(self, model_file, min_score_thresh=.5):
         # Load a (frozen) Tensorflow model into memory
         self.detection_graph = tf.Graph()
         with self.detection_graph.as_default():
@@ -11,6 +12,19 @@ class TLClassifier(object):
                 serialized_graph = fid.read()
                 od_graph_def.ParseFromString(serialized_graph)
                 tf.import_graph_def(od_graph_def, name='')
+
+        # Minimum threshold for taking detection into account
+        self.min_score_thresh = min_score_thresh
+
+    def convert_class_id_to_traffic_light(class_id):
+        if class_id == 1:
+            return TrafficLight.GREEN
+        if class_id == 2:
+            return TrafficLight.YELLOW
+        if class_id == 3:
+            return TrafficLight.RED
+        else:
+            return TrafficLight.UNKNOWN
 
     def get_classification(self, image):
         """Determines the color of the traffic light in the image
@@ -55,7 +69,7 @@ class TLClassifier(object):
                 # Run inference
                 output_dict = sess.run(tensor_dict, feed_dict={image_tensor: np.expand_dims(image, 0)})
 
-                # all outputs are float32 numpy arrays, so convert types as appropriate
+                # All outputs are float32 numpy arrays, so convert types as appropriate
                 output_dict['num_detections'] = int(output_dict['num_detections'][0])
                 output_dict['detection_classes'] = output_dict[ 'detection_classes'][0].astype(np.uint8)
                 output_dict['detection_boxes'] = output_dict['detection_boxes'][0]
@@ -63,4 +77,9 @@ class TLClassifier(object):
                 if 'detection_masks' in output_dict:
                     output_dict['detection_masks'] = output_dict['detection_masks'][0]
 
-                return output_dict
+                # Return the detection with highest score if above the min threshold
+                detected_class = None
+                if output_dict['num_detections'] > 0 and output_dict['detection_scores'][0] > self.min_score_thresh:
+                    detected_class = output_dict['detection_classes'][0]
+
+                return convert_class_id_to_traffic_light(detected_class)
