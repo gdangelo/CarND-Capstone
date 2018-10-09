@@ -25,7 +25,7 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
-
+MAX_VEL = 50 # Velocity limit in mph
 
 class WaypointUpdater(object):
     def __init__(self):
@@ -43,6 +43,8 @@ class WaypointUpdater(object):
         self.base_waypoints_2d = None
         self.base_waypoints_kdtree = None
         self.stop_waypoint_id = None
+
+        self.max_velocity = MAX_VEL * 0.447 # m/s
 
         self.loop()
 
@@ -93,10 +95,13 @@ class WaypointUpdater(object):
         self.pose = msg
 
     def waypoints_cb(self, waypoints):
+        # Change base waypoints velocities to max velocity ~50mph
+        for i in range(len(waypoints.waypoints)):
+            set_waypoint_velocity(waypoints.waypoints, i, self.max_velocity)
         # Base waypoints are only received once, save them
         self.base_waypoints = waypoints
         # Only keep 2D data
-        self.base_waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
+        self.base_waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in self.base_waypoints.waypoints]
         # Use KDTree for quick nearest-neighbor lookup
         self.base_waypoints_kdtree = KDTree(self.base_waypoints_2d)
 
