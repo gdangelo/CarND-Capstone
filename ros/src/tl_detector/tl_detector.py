@@ -167,7 +167,6 @@ class TLDetector(object):
                 light_str = 'Yellow'
             else:
                 light_str = 'Green'
-            rospy.logwarn('Closest light state: ' + light_str)
 
             return light_wp, state
 

@@ -94,7 +94,8 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, waypoints):
         # Base waypoints are only received once, save them
-        self.base_waypoints = waypoints# Only keep 2D data
+        self.base_waypoints = waypoints
+        # Only keep 2D data
         self.base_waypoints_2d = [[waypoint.pose.pose.position.x, waypoint.pose.pose.position.y] for waypoint in waypoints.waypoints]
         # Use KDTree for quick nearest-neighbor lookup
         self.base_waypoints_kdtree = KDTree(self.base_waypoints_2d)
