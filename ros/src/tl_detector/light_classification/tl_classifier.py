@@ -2,7 +2,7 @@ from styx_msgs.msg import TrafficLight
 import tensorflow as tf
 import numpy as np
 
-FROZEN_GRAPH_PATH = './models/ssd_sim/frozen_inference_graph.pb'
+FROZEN_GRAPH_PATH = 'light_classification/models/ssd_sim/frozen_inference_graph.pb'
 
 class TLClassifier(object):
     def __init__(self):
@@ -40,7 +40,7 @@ class TLClassifier(object):
         # Retrieve tensor from graph
         tensor_name = name + ':0'
         if tensor_name in self.all_tensor_names:
-            return self.grpah.get_tensor_by_name(tensor_name)
+            return self.detection_graph.get_tensor_by_name(tensor_name)
 
         return None
 
