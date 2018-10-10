@@ -97,7 +97,7 @@ class WaypointUpdater(object):
     def waypoints_cb(self, waypoints):
         # Change base waypoints velocities to max velocity ~50mph
         for i in range(len(waypoints.waypoints)):
-            set_waypoint_velocity(waypoints.waypoints, i, self.max_velocity)
+            self.set_waypoint_velocity(waypoints.waypoints, i, self.max_velocity)
         # Base waypoints are only received once, save them
         self.base_waypoints = waypoints
         # Only keep 2D data
