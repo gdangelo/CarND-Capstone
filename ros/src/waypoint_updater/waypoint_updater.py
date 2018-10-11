@@ -96,8 +96,7 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, waypoints):
         # Change base waypoints velocities to max velocity ~50mph
-        for i in range(len(waypoints.waypoints)):
-            self.set_waypoint_velocity(waypoints.waypoints, i, self.max_velocity)
+        self.set_max_velocities(waypoints.waypoints)
         # Base waypoints are only received once, save them
         self.base_waypoints = waypoints
         # Only keep 2D data
@@ -117,8 +116,11 @@ class WaypointUpdater(object):
         waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
 
         # If red light detected ahead update waypoints velocities
-        if self.stop_waypoint_id > 0:
+        if self.stop_waypoint_id > 0 and self.waypoint_id <= closest_id:
             self.decelerate(waypoints, closest_id)
+        # Otherwise, reset velocities --> go as fast as speed limit
+        else:
+            self.set_max_velocities(waypoints)
 
         return waypoints
 
@@ -137,8 +139,12 @@ class WaypointUpdater(object):
             # Decrease target velocity
             else:
                 vel = self.get_waypoint_velocity(waypoints, i)
-                vel = vel - decrease_vel_step if vel - decrease_vel_step > 0.1 else 0.
+                vel = max(vel - (i+1)*decrease_vel_step, 0.)
                 self.set_waypoint_velocity(waypoints, i, vel)
+
+    def set_max_velocities(self, waypoints):
+        for i in range(len(waypoints)):
+            self.set_waypoint_velocity(waypoints, i, self.max_velocity)
 
     def get_waypoint_velocity(self, waypoints, waypoint):
         return waypoints[waypoint].twist.twist.linear.x
