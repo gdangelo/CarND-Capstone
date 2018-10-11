@@ -64,17 +64,19 @@ class TLClassifier(object):
             int: ID of traffic light color (specified in styx_msgs/TrafficLight)
 
         """
+        # Run inference
+        if self.detection_graph and self.sess and self.num_detections and self.boxes and self.scores and self.classes:
+            with self.detection_graph.as_default():
+                num_detections, boxes, scores, classes = self.sess.run(
+                    [self.num_detections, self.boxes, self.scores, self.classes],
+                    feed_dict={self.image_tensor: np.expand_dims(image, 0)})
 
-        with self.detection_graph.as_default():
-            # Run inference
-            num_detections, boxes, scores, classes = self.sess.run(
-                [self.num_detections, self.boxes, self.scores, self.classes],
-                feed_dict={self.image_tensor: np.expand_dims(image, 0)})
+                boxes = np.squeeze(boxes)
+                scores = np.squeeze(scores)
+                classes = np.squeeze(classes).astype(np.int32)
 
-            boxes = np.squeeze(boxes)
-            scores = np.squeeze(scores)
-            classes = np.squeeze(classes).astype(np.int32)
+                # Return the detection with highest score if above the min threshold
+                detected_class = classes[0] if (num_detections > 0 and scores[0] > self.detection_threshold) else -1
+                return self.convert_class_id_to_traffic_light(detected_class)
 
-            # Return the detection with highest score if above the min threshold
-            detected_class = classes[0] if (num_detections > 0 and scores[0] > self.detection_threshold) else -1
-            return self.convert_class_id_to_traffic_light(detected_class)
+        return TrafficLight.UNKNOWN
