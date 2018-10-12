@@ -65,7 +65,7 @@ class TLClassifier(object):
 
         """
         # Run inference
-        if self.detection_graph and self.sess and self.num_detections and self.boxes and self.scores and self.classes:
+        if None not in [self.detection_graph, self.sess, self.num_detections, self.boxes, self.scores, self.classes]:
             with self.detection_graph.as_default():
                 num_detections, boxes, scores, classes = self.sess.run(
                     [self.num_detections, self.boxes, self.scores, self.classes],
