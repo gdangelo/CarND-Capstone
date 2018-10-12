@@ -49,8 +49,8 @@ class WaypointUpdater(object):
         self.loop()
 
     def loop(self):
-        # Set loop rate at 50Hz
-        rate = rospy.Rate(50)
+        # Set loop rate at 10Hz
+        rate = rospy.Rate(10)
         # Run until node is shutted down
         while not rospy.is_shutdown():
             if self.pose and self.base_waypoints_kdtree:
@@ -116,7 +116,7 @@ class WaypointUpdater(object):
         waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
 
         # If red light detected ahead update waypoints velocities
-        if self.stop_waypoint_id > 0 and self.waypoint_id <= closest_id:
+        if self.stop_waypoint_id > 0 and self.stop_waypoint_id > closest_id and self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS:
             self.decelerate(waypoints, closest_id)
         # Otherwise, reset velocities --> go as fast as speed limit
         else:
