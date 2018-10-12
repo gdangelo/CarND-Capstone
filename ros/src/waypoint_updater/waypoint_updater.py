@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped
 from std_msgs.msg import Int32
 from styx_msgs.msg import Lane, Waypoint
 from scipy.spatial import KDTree
@@ -25,7 +25,11 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
-MAX_VEL = 50 # Velocity limit in mph
+MAX_VEL = 49 # Velocity limit in mph
+
+class DrivingState():
+    DRIVE = 0,
+    STOP = 1
 
 class WaypointUpdater(object):
     def __init__(self):
@@ -34,15 +38,18 @@ class WaypointUpdater(object):
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
         rospy.Subscriber('/traffic_waypoint', Int32, self.traffic_cb)
+        rospy.Subscriber('/current_velocity', TwistStamped, self.velocity_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
         # Member variables
         self.pose = None
+        self.current_vel = None
         self.base_waypoints = None
         self.base_waypoints_2d = None
         self.base_waypoints_kdtree = None
         self.stop_waypoint_id = None
+        self.driving_state = DrivingState.STOP
 
         self.max_velocity = MAX_VEL * 0.447 # m/s
 
@@ -53,7 +60,7 @@ class WaypointUpdater(object):
         rate = rospy.Rate(10)
         # Run until node is shutted down
         while not rospy.is_shutdown():
-            if self.pose and self.base_waypoints_kdtree:
+            if self.pose and self.current_vel and self.base_waypoints_kdtree:
                 # Find closest id waypoint to current pose using KDTree
                 closest_id = self.get_closest_waypoint_id()
                 # Publish {LOOKAHEAD_WPS} waypoints from this id
@@ -94,9 +101,12 @@ class WaypointUpdater(object):
     def pose_cb(self, msg):
         self.pose = msg
 
+    def velocity_cb(self, msg):
+        self.current_vel = msg.twist.linear.x
+
     def waypoints_cb(self, waypoints):
-        # Change base waypoints velocities to max velocity ~50mph
-        self.set_max_velocities(waypoints.waypoints)
+        # Init base waypoints velocities to 0mph
+        self.init_velocities(waypoints.waypoints)
         # Base waypoints are only received once, save them
         self.base_waypoints = waypoints
         # Only keep 2D data
@@ -111,30 +121,40 @@ class WaypointUpdater(object):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
         pass
 
+    def is_red_light_ahead(self, closest_id):
+        if self.stop_waypoint_id > 0 and self.stop_waypoint_id > closest_id and self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS:
+            return True
+
+        return False
+
     def get_final_waypoints(self, closest_id):
         # Generate the list of next LOOKAHEAD_WPS waypoints
         waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
 
-        # If red light detected ahead update waypoints velocities
-        if self.stop_waypoint_id > 0 and self.stop_waypoint_id > closest_id and self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS:
-            self.decelerate(waypoints, closest_id)
-        # Otherwise, reset velocities --> go as fast as speed limit
+        # Red light detected ahead
+        if self.is_red_light_ahead(closest_id):
+            # If driving, decelerate until stop line
+            if self.driving_state == DrivingState.DRIVE:
+                self.driving_state = DrivingState.STOP
+                self.decelerate(waypoints, closest_id)
+            # If stopped and not at stop line, accelerate until stop line and stop
+            if self.driving_state == DrivingState.STOP and closest_id < self.stop_waypoint_id:
+                self.accelerate(waypoints, closest_id)
+        # Otherwise, accelerate to reach speed limit
         else:
-            self.set_max_velocities(waypoints)
+            self.driving_state = DrivingState.DRIVE
+            self.accelerate(waypoints, closest_id)
 
         return waypoints
 
     def decelerate(self, waypoints, closest_id):
-        # Get first waypoint target velocity
-        first_vel = self.get_waypoint_velocity(waypoints, 0)
-
         # Compute decreasing velocity step
-        decrease_vel_step = first_vel / float(LOOKAHEAD_WPS)
+        decrease_vel_step = self.current_vel / float(len(waypoints))
 
         # Update velocity for each waypoint
-        for i in range(LOOKAHEAD_WPS):
+        for i in range(len(waypoints)):
             # Stop at red light
-            if closest_id+i == self.stop_waypoint_id:
+            if closest_id+i >= self.stop_waypoint_id:
                 self.set_waypoint_velocity(waypoints, i, 0.)
             # Decrease target velocity
             else:
@@ -142,9 +162,28 @@ class WaypointUpdater(object):
                 vel = max(vel - (i+1)*decrease_vel_step, 0.)
                 self.set_waypoint_velocity(waypoints, i, vel)
 
+    def accelerate(self, waypoints, closest_id):
+        # Keep going at full speed
+        if self.current_vel >= self.max_velocity:
+            self.set_max_velocities(waypoints)
+        # Otherwise accelerate smoothly
+        else:
+            for i in range(len(waypoints)):
+                # Stop at red light
+                if closest_id+i >= self.stop_waypoint_id:
+                    self.set_waypoint_velocity(waypoints, i, 0.)
+                else:
+                    vel = self.get_waypoint_velocity(waypoints, i)
+                    vel = min(vel + (i+1)*0.75, self.max_velocity)
+                    self.set_waypoint_velocity(waypoints, i, vel)
+
     def set_max_velocities(self, waypoints):
         for i in range(len(waypoints)):
             self.set_waypoint_velocity(waypoints, i, self.max_velocity)
+
+    def init_velocities(self, waypoints):
+        for i in range(len(waypoints)):
+            self.set_waypoint_velocity(waypoints, i, 0.)
 
     def get_waypoint_velocity(self, waypoints, waypoint):
         return waypoints[waypoint].twist.twist.linear.x
