@@ -25,10 +25,13 @@ TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
 LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
-MAX_VEL = 49 # Velocity limit in mph
+MAX_VEL = 10 # Speed limit in mph
+ONE_MPH = 0.44704
+MAX_DECEL = 0.5
+STOP_DIST = 7.0
 
 class DrivingState():
-    DRIVE = 0,
+    DRIVE = 0
     STOP = 1
 
 class WaypointUpdater(object):
@@ -49,9 +52,10 @@ class WaypointUpdater(object):
         self.base_waypoints_2d = None
         self.base_waypoints_kdtree = None
         self.stop_waypoint_id = None
+        self.decrease_vel_step = None
         self.driving_state = DrivingState.STOP
 
-        self.max_velocity = MAX_VEL * 0.447 # m/s
+        self.max_velocity = MAX_VEL * ONE_MPH # m/s
 
         self.loop()
 
@@ -65,6 +69,7 @@ class WaypointUpdater(object):
                 closest_id = self.get_closest_waypoint_id()
                 # Publish {LOOKAHEAD_WPS} waypoints from this id
                 self.publish_waypoints(closest_id)
+                
             rate.sleep()
 
     def get_closest_waypoint_id(self):
@@ -86,17 +91,20 @@ class WaypointUpdater(object):
             # This is one should be the closest one in front of the car
             return (closest_id + 1) % len(self.base_waypoints_2d)
 
-        return closest_id
+        return closest_id % len(self.base_waypoints_2d)
 
     def publish_waypoints(self, closest_id):
-        # Create message to publish
-        lane = Lane()
-        # Add header to lane message
-        lane.header = self.base_waypoints.header
-        # Add waypoints to lane message
-        lane.waypoints = self.get_final_waypoints(closest_id)
-        # Publish lane message
-        self.final_waypoints_pub.publish(lane)
+        waypoints = self.get_final_waypoints(closest_id)
+            
+        if waypoints is not None:
+            # Create message to publish
+            lane = Lane()
+            # Add header to lane message
+            lane.header = self.base_waypoints.header
+            # Add waypoints to lane message
+            lane.waypoints = waypoints
+            # Publish lane message
+            self.final_waypoints_pub.publish(lane)
 
     def pose_cb(self, msg):
         self.pose = msg
@@ -106,7 +114,7 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, waypoints):
         # Init base waypoints velocities to 0mph
-        self.init_velocities(waypoints.waypoints)
+        #self.set_max_velocities(waypoints.waypoints)
         # Base waypoints are only received once, save them
         self.base_waypoints = waypoints
         # Only keep 2D data
@@ -115,67 +123,70 @@ class WaypointUpdater(object):
         self.base_waypoints_kdtree = KDTree(self.base_waypoints_2d)
 
     def traffic_cb(self, msg):
-        self.stop_waypoint_id = msg
+        self.stop_waypoint_id = msg.data
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
         pass
 
     def is_red_light_ahead(self, closest_id):
-        if self.stop_waypoint_id > 0 and self.stop_waypoint_id > closest_id and self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS:
+        if self.stop_waypoint_id > 0 and self.stop_waypoint_id >= closest_id and self.stop_waypoint_id <= closest_id + LOOKAHEAD_WPS:
             return True
-
+        
         return False
 
     def get_final_waypoints(self, closest_id):
         # Generate the list of next LOOKAHEAD_WPS waypoints
-        waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
+        waypoints = None
 
         # Red light detected ahead
         if self.is_red_light_ahead(closest_id):
             # If driving, decelerate until stop line
-            if self.driving_state == DrivingState.DRIVE:
-                self.driving_state = DrivingState.STOP
-                self.decelerate(waypoints, closest_id)
-            # If stopped and not at stop line, accelerate until stop line and stop
-            if self.driving_state == DrivingState.STOP and closest_id < self.stop_waypoint_id:
-                self.accelerate(waypoints, closest_id)
-        # Otherwise, accelerate to reach speed limit
-        else:
+            #if self.driving_state == DrivingState.DRIVE:
+            waypoints = self.decelerate(closest_id)
+            self.driving_state = DrivingState.STOP
+                
+        # Otherwise, if stopped, go back to driving state
+        elif self.driving_state == DrivingState.STOP:
             self.driving_state = DrivingState.DRIVE
-            self.accelerate(waypoints, closest_id)
-
+            self.decrease_vel_step = None
+            
+        # Keep going
+        if self.driving_state == DrivingState.DRIVE:
+            waypoints = self.accelerate(closest_id)
+            
         return waypoints
 
-    def decelerate(self, waypoints, closest_id):
-        # Compute decreasing velocity step
-        decrease_vel_step = self.current_vel / float(len(waypoints))
+    def decelerate(self, closest_id):
+        stop_id = self.stop_waypoint_id - closest_id - 2
+        waypoints = self.base_waypoints.waypoints[closest_id:closest_id+stop_id+1]
 
         # Update velocity for each waypoint
         for i in range(len(waypoints)):
-            # Stop at red light
-            if closest_id+i >= self.stop_waypoint_id:
+            # Stop car at stop line (and beyond)
+            if i >= stop_id:
                 self.set_waypoint_velocity(waypoints, i, 0.)
             # Decrease target velocity
             else:
-                vel = self.get_waypoint_velocity(waypoints, i)
-                vel = max(vel - (i+1)*decrease_vel_step, 0.)
-                self.set_waypoint_velocity(waypoints, i, vel)
-
-    def accelerate(self, waypoints, closest_id):
-        # Keep going at full speed
-        if self.current_vel >= self.max_velocity:
-            self.set_max_velocities(waypoints)
-        # Otherwise accelerate smoothly
-        else:
-            for i in range(len(waypoints)):
-                # Stop at red light
-                if closest_id+i >= self.stop_waypoint_id:
-                    self.set_waypoint_velocity(waypoints, i, 0.)
-                else:
-                    vel = self.get_waypoint_velocity(waypoints, i)
-                    vel = min(vel + (i+1)*0.75, self.max_velocity)
+                dist = self.distance(waypoints, i, stop_id)
+                dist = max(0, dist - STOP_DIST)
+                vel = min(math.sqrt(MAX_DECEL * dist), self.max_velocity)
+                if vel <= 1.5:
+                    vel = 0
                     self.set_waypoint_velocity(waypoints, i, vel)
+
+        return waypoints
+    
+    def accelerate(self, closest_id):
+        waypoints = self.base_waypoints.waypoints[closest_id:closest_id + LOOKAHEAD_WPS]
+        
+        # Accelerate smoothly
+        for i in range(len(waypoints)):
+            vel = self.get_waypoint_velocity(waypoints, i)
+            vel = min(vel + (i+1)*0.05, self.max_velocity)
+            self.set_waypoint_velocity(waypoints, i, vel)
+            
+        return waypoints
 
     def set_max_velocities(self, waypoints):
         for i in range(len(waypoints)):
